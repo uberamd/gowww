@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/http/httputil"
 	"log"
 	"regexp"
 )
@@ -10,6 +11,11 @@ var githash string
 var builddate string
 
 func redirect(w http.ResponseWriter, r *http.Request) {
+	// debug the request
+	requestDump, _ := httputil.DumpRequest(r, true)
+
+	log.Println(string(requestDump))
+
 	var urlScheme string = "http"
 	var host string = r.Host
 
@@ -23,8 +29,8 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 		urlScheme = "https"
 	}
 
-	if(r.Header.Get("X-Forwarded-For") != "") {
-		host = r.Header.Get("X-Forwarded-For")
+	if(r.Header.Get("X-Forwarded-Host") != "") {
+		host = r.Header.Get("X-Forwarded-Host")
 	}
 
 	safe := reg.ReplaceAllString(host, "")
@@ -35,7 +41,16 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fullUrl, 301)
 }
 
+// health endpoint
+func health(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Request to: /healthz")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write([]byte("{ \"health\": \"ok\" }"))
+}
+
 func main() {
+	http.HandleFunc("/healthz", health)
 	http.HandleFunc("/", redirect)
 
 	log.Printf("Commit: %v, Built: %v", githash, builddate)
